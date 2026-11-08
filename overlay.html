@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>King Walk</title>
+<style>
+  body { font: 15px -apple-system, sans-serif; margin: 12px; background: #1d1f21; color: #eee; }
+  #wrap { display: flex; gap: 10px; align-items: stretch; }
+  #bar { width: 22px; background: #222; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #555; }
+  #white { position: absolute; left: 0; right: 0; bottom: 0; background: #f2f2f2; transition: height .4s; }
+  #status { margin-top: 10px; font-size: 18px; }
+  #note { color: #999; font-size: 12px; margin-top: 6px; max-width: 420px; }
+  svg { display: block; }
+</style>
+<div id="wrap"><div id="bar"><div id="white" style="height:50%"></div></div><svg id="b" width="400" height="400"></svg></div>
+<div id="status">connecting...</div>
+<div id="note">Eval bar = the king-walk engine's own estimate (White's share), not Stockfish.</div>
+<script>
+const G = {K:"♚",Q:"♛",R:"♜",B:"♝",N:"♞",P:"♟"};
+const S = 50, svg = document.getElementById("b");
+function sqXY(f, r, wb) { return wb ? [f*S, (7-r)*S] : [(7-f)*S, r*S]; }
+function uciSq(s) { return [s.charCodeAt(0)-97, +s[1]-1]; }
+function draw(d) {
+  let h = "";
+  for (let r=0;r<8;r++) for (let f=0;f<8;f++) {
+    const [x,y] = sqXY(f,r,d.white_bottom);
+    h += `<rect x="${x}" y="${y}" width="${S}" height="${S}" fill="${(f+r)%2?'#eeeed2':'#769656'}"/>`;
+  }
+  if (d.fen) {
+    const rows = d.fen.split(" ")[0].split("/");
+    rows.forEach((row, i) => { let f = 0;
+      for (const c of row) { if (/\d/.test(c)) f += +c; else {
+        const [x,y] = sqXY(f, 7-i, d.white_bottom), w = c === c.toUpperCase();
+        h += `<text x="${x+S/2}" y="${y+S/2+2}" font-size="38" text-anchor="middle" dominant-baseline="middle" fill="${w?'#fff':'#111'}" stroke="${w?'#111':'#fff'}" stroke-width="1">${G[c.toUpperCase()]}</text>`;
+        f++; } } });
+  }
+  if (d.move) {
+    const [a,b] = uciSq(d.move.slice(0,2)), [c,e] = uciSq(d.move.slice(2,4));
+    const [x1,y1] = sqXY(a,b,d.white_bottom), [x2,y2] = sqXY(c,e,d.white_bottom);
+    h += `<line x1="${x1+S/2}" y1="${y1+S/2}" x2="${x2+S/2}" y2="${y2+S/2}" stroke="#e8b400" stroke-width="8" stroke-linecap="round" opacity=".85"/>`;
+    h += `<circle cx="${x2+S/2}" cy="${y2+S/2}" r="12" fill="#e8b400" opacity=".9"/>`;
+  }
+  svg.innerHTML = h;
+  const cp = d.cp_white ?? 0, share = 100 / (1 + Math.exp(-cp / 250));
+  document.getElementById("white").style.height = share + "%";
+  document.getElementById("status").textContent =
+    d.san ? `King walk: ${d.san}  (${cp>=0?'+':''}${(cp/100).toFixed(1)}, depth ${d.depth})` : d.status;
+}
+async function tick() {
+  try { draw(await (await fetch("/state.json")).json()); } catch (e) {}
+  setTimeout(tick, 500);
+}
+tick();
+</script>

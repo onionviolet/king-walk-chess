@@ -1,0 +1,89 @@
+diff --git a/src/engine.cpp b/src/engine.cpp
+index 941d67b..7e5aec1 100644
+--- a/src/engine.cpp
++++ b/src/engine.cpp
+@@ -46,6 +46,9 @@
+ 
+ namespace Stockfish {
+ 
++extern int KingWalkColor;  // KING WALK PATCH (defined in position.cpp)
++
++
+ namespace NN = Eval::NNUE;
+ 
+ int MaxThreads = std::max(1024, 4 * int(get_hardware_concurrency()));
+@@ -92,6 +95,13 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
+           return std::nullopt;
+       }));
+ 
++    options.add(  //
++      "KingWalkColor", Option(2, 0, 2, [this](const Option& o) {
++          KingWalkColor = int(o);
++          search_clear();
++          return std::nullopt;
++      }));
++
+     options.add(  //
+       "Clear Hash", Option([this](const Option&) {
+           search_clear();
+diff --git a/src/movegen.cpp b/src/movegen.cpp
+index 034caac..21efa76 100644
+--- a/src/movegen.cpp
++++ b/src/movegen.cpp
+@@ -33,6 +33,9 @@
+ 
+ namespace Stockfish {
+ 
++extern int KingWalkColor;  // KING WALK PATCH (defined in position.cpp)
++
++
+ namespace {
+ 
+ #if defined(USE_AVX512ICL)
+@@ -242,12 +245,16 @@ Move* generate_all(const Position& pos, Move* moveList, Color us) {
+                : Type == CAPTURES ? pos.pieces(~us)
+                                   : ~pos.pieces();  // QUIETS
+ 
+-        moveList = us == WHITE ? generate_pawn_moves<WHITE, Type>(pos, moveList, target)
+-                               : generate_pawn_moves<BLACK, Type>(pos, moveList, target);
+-        moveList = generate_moves<KNIGHT>(pos, moveList, target, us);
+-        moveList = generate_moves<BISHOP>(pos, moveList, target, us);
+-        moveList = generate_moves<ROOK>(pos, moveList, target, us);
+-        moveList = generate_moves<QUEEN>(pos, moveList, target, us);
++        // KING WALK PATCH: the restricted side generates no non-king moves
++        if (int(us) != KingWalkColor)
++        {
++            moveList = us == WHITE ? generate_pawn_moves<WHITE, Type>(pos, moveList, target)
++                                   : generate_pawn_moves<BLACK, Type>(pos, moveList, target);
++            moveList = generate_moves<KNIGHT>(pos, moveList, target, us);
++            moveList = generate_moves<BISHOP>(pos, moveList, target, us);
++            moveList = generate_moves<ROOK>(pos, moveList, target, us);
++            moveList = generate_moves<QUEEN>(pos, moveList, target, us);
++        }
+     }
+ 
+     if constexpr (Type == EVASIONS)
+diff --git a/src/position.cpp b/src/position.cpp
+index b1c0564..96baa91 100644
+--- a/src/position.cpp
++++ b/src/position.cpp
+@@ -666,6 +666,8 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
+ 
+ // Takes a random move and tests whether the move is legal. It is used to validate moves
+ // from TT that can be corrupted due to SMP concurrent access or hash position key aliasing.
++int KingWalkColor = 2;  // KING WALK PATCH: 0 = white, 1 = black restricted to king moves; 2 = off
++
+ bool Position::legal(Move m) const {
+ 
+     Color  us   = sideToMove;
+@@ -673,6 +675,10 @@ bool Position::legal(Move m) const {
+     Square to   = m.to_sq();
+     Piece  pc   = moved_piece(m);
+ 
++    // KING WALK PATCH: the restricted side may only move its king (castling counts)
++    if (int(us) == KingWalkColor && type_of(pc) != KING)
++        return false;
++
+     // Use a slower but simpler function for uncommon cases
+     if (m.type_of() != NORMAL)
+         return MoveList<ALL>(*this).contains(m);

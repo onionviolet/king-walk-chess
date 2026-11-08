@@ -1,0 +1,25 @@
+baseline: 0.188 {'hunt': 1.0, 'loose': 12.0, 'check': 80.0, 'escape': 7.0, 'boxed': 60.0}
+iter0: 0.125 {'hunt': 1.79, 'loose': 23.04, 'check': 82.42, 'escape': 4.96, 'boxed': 36.7}
+iter1: 0.203 {'hunt': 1.01, 'loose': 7.58, 'check': 41.91, 'escape': 7.66, 'boxed': 63.71}
+iter2: 0.172 {'hunt': 1.29, 'loose': 5.02, 'check': 42.0, 'escape': 7.44, 'boxed': 32.35}
+iter3: 0.172 {'hunt': 1.29, 'loose': 8.76, 'check': 122.81, 'escape': 8.39, 'boxed': 59.69}
+iter4: 0.109 {'hunt': 1.76, 'loose': 8.29, 'check': 63.09, 'escape': 6.5, 'boxed': 70.28}
+iter5: 0.156 {'hunt': 1.6, 'loose': 10.37, 'check': 44.4, 'escape': 4.71, 'boxed': 77.84}
+iter6: 0.188 {'hunt': 1.05, 'loose': 10.48, 'check': 46.19, 'escape': 12.5, 'boxed': 62.25}
+iter7: 0.141 {'hunt': 1.11, 'loose': 10.23, 'check': 25.7, 'escape': 6.39, 'boxed': 50.87}
+iter8: 0.156 {'hunt': 2.46, 'loose': 7.27, 'check': 56.21, 'escape': 10.12, 'boxed': 56.15}
+iter9: 0.156 {'hunt': 0.5, 'loose': 11.7, 'check': 34.89, 'escape': 10.58, 'boxed': 35.41}
+iter10: 0.203 {'hunt': 0.83, 'loose': 13.34, 'check': 79.8, 'escape': 4.26, 'boxed': 34.97}
+iter11: 0.203 {'hunt': 0.99, 'loose': 10.52, 'check': 45.05, 'escape': 8.78, 'boxed': 40.83}
+iter12: 0.125 {'hunt': 1.32, 'loose': 12.53, 'check': 34.45, 'escape': 4.02, 'boxed': 45.28}
+iter13: 0.141 {'hunt': 1.42, 'loose': 3.47, 'check': 40.21, 'escape': 4.9, 'boxed': 60.06}
+iter14: 0.141 {'hunt': 0.9, 'loose': 7.63, 'check': 82.36, 'escape': 9.26, 'boxed': 116.11}
+iter15: 0.234 {'hunt': 0.95, 'loose': 6.11, 'check': 49.7, 'escape': 2.14, 'boxed': 62.58}
+
+Confirming top 3 plus baseline...
+confirm: 0.094 {'hunt': 1.0, 'loose': 12.0, 'check': 80.0, 'escape': 7.0, 'boxed': 60.0}
+confirm: 0.120 {'hunt': 0.95, 'loose': 6.11, 'check': 49.7, 'escape': 2.14, 'boxed': 62.58}
+confirm: 0.141 {'hunt': 1.01, 'loose': 7.58, 'check': 41.91, 'escape': 7.66, 'boxed': 63.71}
+confirm: 0.141 {'hunt': 0.83, 'loose': 13.34, 'check': 79.8, 'escape': 4.26, 'boxed': 34.97}
+
+BEST CONFIRMED: (0.140625, {'hunt': 1.01, 'loose': 7.58, 'check': 41.91, 'escape': 7.66, 'boxed': 63.71})

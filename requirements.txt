@@ -1,0 +1,6 @@
+chess
+numpy
+pillow
+pytest
+pyobjc-framework-Vision; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
