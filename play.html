@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Walk Chess</title>
+<style>
+  :root {
+    --bg:#16191c; --panel:#212529; --panel2:#2a2f34; --line:#353b41; --text:#ece9e4; --muted:#98a1a8;
+    --light:#ecdcbc; --dark:#b08a5e; --accent:#7cc39a; --accent-ink:#0f1f16; --warn:#e8b04a; --bad:#e26a5f;
+    --last:rgba(255,214,90,.42); --sel:rgba(255,214,90,.7); --dot:rgba(25,25,25,.32);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.2px; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:18px 16px 32px; display:grid; grid-template-columns:minmax(0,auto) minmax(280px,360px); gap:22px; justify-content:center; }
+  @media (max-width:900px) { main { grid-template-columns:minmax(0,1fr); } }
+
+  /* board column */
+  .boardcol { display:flex; flex-direction:column; gap:8px; --size:min(600px, calc(100vw - 64px), calc(100vh - 190px)); }
+  @media (max-width:900px) { .boardcol { --size:min(600px, calc(100vw - 58px), calc(100vh - 170px)); } }
+  .player { display:flex; align-items:center; gap:10px; padding:6px 10px; background:var(--panel); border-radius:8px; margin-left:26px; min-height:40px; }
+  .player .name { font-weight:600; }
+  .player .tag { font-size:12px; color:var(--muted); }
+  .player .caps { font-family:"Apple Symbols", "Segoe UI Symbol", serif; margin-left:auto; display:flex; align-items:center; gap:1px; font-size:18px; line-height:1; color:var(--muted); }
+  .player .caps b { font-size:12px; margin-left:6px; color:var(--text); }
+  .player.turn { box-shadow:inset 3px 0 0 var(--accent); }
+  .spinner { width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; display:none; }
+  .thinking .spinner { display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .boardwrap { display:flex; gap:8px; }
+  .evalbar { width:18px; height:var(--size); border-radius:4px; overflow:hidden; background:#111; position:relative; flex:none; }
+  .evalbar .fill { position:absolute; left:0; right:0; bottom:0; height:50%; background:#f1f1f1; transition:height .4s; }
+  .evalbar .val { position:absolute; left:0; right:0; font-size:9px; text-align:center; font-weight:700; z-index:1; }
+  .boardbox { position:relative; width:var(--size); height:var(--size); flex:none; }
+  #board { width:100%; height:100%; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+           border-radius:6px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.45); user-select:none; touch-action:none; }
+  .sq { position:relative; display:flex; align-items:center; justify-content:center; }
+  .sq.l { background:var(--light); } .sq.d { background:var(--dark); }
+  .sq.last::before, .sq.sel::before, .sq.check::before, .sq.hover::before { content:""; position:absolute; inset:0; }
+  .sq.last::before { background:var(--last); }
+  .sq.sel::before { background:var(--sel); }
+  .sq.hover::before { box-shadow:inset 0 0 0 4px rgba(255,255,255,.65); }
+  .sq.check::before { background:radial-gradient(circle, rgba(226,60,50,.95) 15%, rgba(226,60,50,.35) 55%, transparent 75%); }
+  .sq.tgt::after { content:""; position:absolute; width:30%; height:30%; border-radius:50%; background:var(--dot); }
+  .sq.tgt.cap::after { width:92%; height:92%; background:transparent; border:calc(var(--size) / 110) solid var(--dot); }
+  .pc { font-family:"Apple Symbols", "Segoe UI Symbol", "DejaVu Sans", serif; position:relative; z-index:2; font-size:calc(var(--size) / 8 * .78); line-height:1; cursor:grab; transition:transform .08s; }
+  .pc.w { color:#fbfaf7; -webkit-text-stroke:1.3px #2a2420; text-shadow:0 2px 3px rgba(0,0,0,.35); }
+  .pc.b { color:#1d1a17; -webkit-text-stroke:.6px #000; text-shadow:0 2px 3px rgba(0,0,0,.3); }
+  .pc.frozen { opacity:.92; }
+  .pc.mine:hover { transform:scale(1.06); }
+  .drag { position:fixed; pointer-events:none; z-index:50; transform:translate(-50%,-50%) scale(1.12); }
+  .coord { position:absolute; font-size:calc(var(--size) / 48); font-weight:700; z-index:1; }
+  .coord.f { right:4px; bottom:2px; } .coord.r { left:4px; top:2px; }
+  .sq.l .coord { color:var(--dark); } .sq.d .coord { color:var(--light); }
+
+  .overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(10,12,14,.55); border-radius:6px; z-index:20; }
+  .overlay.show { display:flex; }
+  .overlay .box { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px 26px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+  .overlay h2 { margin:0 0 4px; font-size:22px; }
+  .overlay p { margin:0 0 14px; color:var(--muted); }
+  .promo .box { display:flex; gap:8px; padding:12px; }
+  .promo button { font-size:calc(var(--size) / 12); width:calc(var(--size) / 7); height:calc(var(--size) / 7); background:var(--light); border-radius:8px; }
+
+  /* side panel */
+  aside { display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .card { background:var(--panel); border-radius:10px; padding:14px; border:1px solid var(--line); }
+  .card h3 { margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); }
+  #status { font-size:18px; font-weight:650; }
+  #status.win { color:var(--accent); } #status.lose { color:var(--bad); } #status.check { color:var(--warn); }
+  #info { color:var(--muted); font-size:13px; min-height:19px; margin-top:2px; }
+  #error { color:var(--bad); font-size:13px; margin-top:6px; display:none; }
+  .moves { display:grid; grid-template-columns:34px 1fr 1fr; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px;
+           max-height:210px; overflow:auto; margin-top:12px; border-top:1px solid var(--line); padding-top:6px; }
+  .moves span { padding:3px 6px; border-radius:4px; }
+  .moves .n { color:var(--muted); }
+  .moves .cur { background:var(--panel2); color:var(--accent); font-weight:700; }
+  .moves .empty { grid-column:1/-1; color:var(--muted); font-family:inherit; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button { font:inherit; border:0; border-radius:7px; padding:8px 13px; font-weight:600; cursor:pointer; background:var(--panel2); color:var(--text); }
+  button:hover { filter:brightness(1.15); }
+  button.primary { background:var(--accent); color:var(--accent-ink); }
+  button:disabled { opacity:.45; cursor:default; filter:none; }
+  .field { margin:10px 0; }
+  .field > span { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  select, input, textarea { font:inherit; width:100%; background:#14171a; color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px 9px; }
+  textarea { font-family:ui-monospace, Menlo, monospace; font-size:12px; resize:vertical; min-height:38px; }
+  .seg { display:flex; background:#14171a; border:1px solid var(--line); border-radius:8px; padding:3px; gap:3px; }
+  .seg button { flex:1; background:transparent; padding:6px 8px; font-weight:500; }
+  .seg button.on { background:var(--panel2); color:var(--text); font-weight:650; box-shadow:0 1px 0 rgba(255,255,255,.05); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { font-size:20px; line-height:1; padding:5px 9px; background:#14171a; border:1px solid var(--line); }
+  .chip.on { background:rgba(226,106,95,.18); border-color:var(--bad); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint { font-size:12px; color:var(--muted); }
+  kbd { font:11px ui-monospace, Menlo, monospace; background:var(--panel2); border-radius:4px; padding:1px 5px; border:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>♚ King Walk Chess</h1>
+  <p>The engine may only move its king and pawns (pick another rule below); its other pieces are frozen but still guard. If it has no allowed move, it may only play a move that frees one.</p>
+</header>
+<main>
+  <section class="boardcol" id="boardcol">
+    <div class="player" id="topbar"><span class="spinner"></span><span class="name" id="topname"></span><span class="tag" id="toptag"></span><span class="caps" id="topcaps"></span></div>
+    <div class="boardwrap">
+      <div class="evalbar" title="Engine evaluation from your side (includes king-walk heuristics)"><span class="val" id="evalval"></span><div class="fill" id="evalfill"></div></div>
+      <div class="boardbox">
+        <div id="board"></div>
+        <div class="overlay promo" id="promo"><div class="box" id="promobox"></div></div>
+        <div class="overlay" id="over"><div class="box"><h2 id="overtitle"></h2><p id="overtext"></p>
+          <div class="row" style="justify-content:center"><button class="primary" id="again">Play again</button><button id="review">See board</button></div></div></div>
+      </div>
+    </div>
+    <div class="player" id="botbar"><span class="spinner"></span><span class="name" id="botname"></span><span class="tag" id="bottag"></span><span class="caps" id="botcaps"></span></div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <div id="status">Loading</div>
+      <div id="info"></div>
+      <div id="error"></div>
+      <div class="moves" id="moves"></div>
+      <div class="row">
+        <button id="undo">↶ Undo</button><button id="flip">⇅ Flip</button><button id="resign">Resign</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Click or drag pieces. <kbd>U</kbd> undo, <kbd>F</kbd> flip, <kbd>N</kbd> new game.</div>
+    </div>
+
+    <div class="card">
+      <h3>New game</h3>
+      <div class="field"><span>You play</span>
+        <div class="seg" id="colorseg"><button data-v="white" class="on">♔ White</button><button data-v="black">♚ Black</button><button data-v="random">Random</button></div></div>
+      <div class="field"><span>Starting position</span><select id="preset"></select></div>
+      <div class="field" id="fenfield" style="display:none"><span>FEN</span><textarea id="fen" rows="2" placeholder="Paste a FEN"></textarea></div>
+      <div class="field"><span>First move</span>
+        <div class="seg" id="firstseg"><button data-v="position" class="on">As in position</button><button data-v="white">White</button><button data-v="black">Black</button></div></div>
+      <div class="field"><span>Your odds (pieces you give up)</span>
+        <div class="chips" id="odds"></div></div>
+      <div class="two">
+        <div class="field"><span>Engine rule</span><select id="rule"></select></div>
+        <div class="field"><span>Engine seconds / move</span><input id="time" type="number" min="0.2" max="30" step="0.5" value="2"></div>
+      </div>
+      <div class="row"><button class="primary" id="new" style="flex:1">Start game</button></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const GLYPH = Object.fromEntries(Object.entries({k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟"}).map(([k, v]) => [k, v + "\uFE0E"]));  // FE0E: text, not emoji
+const VAL = {p:1, n:3, b:3, r:5, q:9, k:0};
+const ODDS = ["q", "r", "r", "b", "n"];
+const $ = id => document.getElementById(id);
+let game = null, cfg = null, sel = null, flipped = false, busy = false, drag = null, lastEval = null, resigned = false;
+const ui = {color:"white", first:"position", odds:new Set()};
+
+// ---------- setup controls ----------
+function seg(id, key) {
+  $(id).querySelectorAll("button").forEach(b => b.onclick = () => {
+    $(id).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); ui[key] = b.dataset.v; });
+}
+seg("colorseg", "color"); seg("firstseg", "first");
+ODDS.forEach((p, i) => {
+  const b = document.createElement("button"); b.className = "chip"; b.textContent = GLYPH[p]; b.title = "Give up a " + {q:"queen", r:"rook", b:"bishop", n:"knight"}[p];
+  b.onclick = () => { ui.odds.has(i) ? ui.odds.delete(i) : ui.odds.add(i); b.classList.toggle("on"); };
+  $("odds").appendChild(b);
+});
+$("preset").onchange = () => { $("fenfield").style.display = $("preset").value === "__custom" ? "" : "none"; };
+
+function settings() {
+  const color = ui.color === "random" ? (Math.random() < .5 ? "white" : "black") : ui.color;
+  const start = $("preset").value === "__custom" ? $("fen").value.trim() : $("preset").value;
+  return {color, start, first:ui.first, rule:$("rule").value, time:parseFloat($("time").value) || 2,
+          odds:[...ui.odds].map(i => ODDS[i]).join(",")};
+}
+
+// ---------- server ----------
+async function api(moves, think, c = cfg) {
+  const r = await fetch("/api/play", {method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({...c, moves, think})});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || "Server error");
+  return j;
+}
+
+function parseFen(fen) {
+  const map = {}; fen.split(" ")[0].split("/").forEach((row, i) => { let f = 0;
+    for (const c of row) { if (/\d/.test(c)) f += +c; else { map["abcdefgh"[f] + (8 - i)] = c; f++; } } });
+  return map;
+}
+
+// ---------- rendering ----------
+function render() {
+  const b = $("board"); b.innerHTML = "";
+  const pos = parseFen(game.fen);
+  const human = cfg.color, whiteBottom = (human === "white") !== flipped;
+  const last = game.last ? [game.last.slice(0,2), game.last.slice(2,4)] : [];
+  const targets = sel ? game.legal.filter(m => m.startsWith(sel)).map(m => m.slice(2,4)) : [];
+  const movable = new Set(game.legal.map(m => m.slice(0,2)));
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const file = whiteBottom ? c : 7 - c, rank = whiteBottom ? 7 - r : r;
+    const sq = "abcdefgh"[file] + (rank + 1);
+    const d = document.createElement("div");
+    d.className = "sq " + ((file + rank) % 2 ? "l" : "d"); d.dataset.sq = sq;
+    if (last.includes(sq)) d.classList.add("last");
+    if (sq === sel) d.classList.add("sel");
+    if (sq === game.check) d.classList.add("check");
+    if (targets.includes(sq)) { d.classList.add("tgt"); if (pos[sq]) d.classList.add("cap"); }
+    const p = pos[sq];
+    if (p) {
+      const white = p === p.toUpperCase(), s = document.createElement("span");
+      s.className = "pc " + (white ? "w" : "b");
+      if (movable.has(sq) && !busy) s.classList.add("mine");
+      const frozenBy = {king:"qrbnp", "king+pawns":"qrbn"}[cfg.rule] || "";
+      if ((white ? "white" : "black") !== human && frozenBy.includes(p.toLowerCase())) s.classList.add("frozen");
+      s.textContent = GLYPH[p.toLowerCase()]; d.appendChild(s);
+    }
+    if (c === 0) d.insertAdjacentHTML("beforeend", `<span class="coord r">${rank + 1}</span>`);
+    if (r === 7) d.insertAdjacentHTML("beforeend", `<span class="coord f">${"abcdefgh"[file]}</span>`);
+    b.appendChild(d);
+  }
+  renderBars(pos); renderMoves(); renderStatus(); renderEval();
+  $("undo").disabled = busy || !game.moves.length;
+  $("resign").disabled = busy || game.over || resigned;
+}
+
+function renderBars(pos) {
+  const human = cfg.color, engine = human === "white" ? "black" : "white";
+  const youTop = flipped;
+  const bars = {[youTop ? "top" : "bot"]:"you", [youTop ? "bot" : "top"]:"engine"};
+  let mat = 0; for (const p of Object.values(pos)) { const v = VAL[p.toLowerCase()]; mat += p === p.toUpperCase() ? v : -v; }
+  const humanMat = human === "white" ? mat : -mat;
+  for (const where of ["top", "bot"]) {
+    const who = bars[where], color = who === "you" ? human : engine;
+    $(where + "name").textContent = who === "you" ? "You" : "Engine";
+    $(where + "tag").textContent = (color === "white" ? "♔ White" : "♚ Black") + (who === "engine" ? ` · rule: ${cfg.rule}` : "");
+    // pieces this side has taken = the other side's captured pieces
+    const taken = game.captured[color === "white" ? "black" : "white"].slice().sort((a, b) => VAL[b] - VAL[a]);
+    const lead = who === "you" ? humanMat : -humanMat;
+    $(where + "caps").innerHTML = taken.map(p => GLYPH[p]).join("") + (lead > 0 ? `<b>+${lead}</b>` : "");
+    const bar = $(where + "bar");
+    bar.classList.toggle("turn", !game.over && game.turn === color);
+    bar.classList.toggle("thinking", who === "engine" && busy);
+  }
+}
+
+function renderMoves() {
+  const m = $("moves"); m.innerHTML = "";
+  if (!game.sans.length) { m.innerHTML = `<span class="empty">No moves yet.</span>`; return; }
+  const offset = game.start_turn === "black" ? 1 : 0;
+  const cells = []; const n0 = parseInt(game.start_fen.split(" ")[5] || "1", 10);
+  const all = Array(offset).fill("…").concat(game.sans);
+  for (let i = 0; i < all.length; i += 2) {
+    cells.push(`<span class="n">${n0 + i / 2}.</span>`);
+    for (const j of [i, i + 1]) {
+      const cur = j - offset === game.sans.length - 1 ? " cur" : "";
+      cells.push(`<span class="${cur.trim()}">${all[j] ?? ""}</span>`);
+    }
+  }
+  m.innerHTML = cells.join(""); m.scrollTop = 1e6;
+}
+
+function renderStatus() {
+  const s = $("status"); let text = game.status, cls = "";
+  if (resigned) { text = "You resigned."; cls = "lose"; }
+  else if (/You win/.test(text)) cls = "win";
+  else if (/Engine wins/.test(text)) cls = "lose";
+  else if (/^Check/.test(text)) cls = "check";
+  if (busy) text = "Engine is thinking";
+  s.textContent = text; s.className = cls;
+  const showOver = (game.over || resigned) && !overDismissed;
+  $("over").classList.toggle("show", showOver);
+  if (showOver) {
+    $("overtitle").textContent = resigned ? "Engine wins" : /You win/.test(text) ? "You win!" : /Engine wins/.test(text) ? "Engine wins" : "Draw";
+    $("overtext").textContent = resigned ? "by resignation" : text;
+  }
+}
+let overDismissed = false;
+
+function renderEval() {
+  // engine eval is from the engine's side; v is from yours
+  const v = lastEval == null ? 0 : -lastEval, mate = Math.abs(v) > 90000;
+  const youShare = mate ? (v > 0 ? 1 : 0) : 1 / (1 + Math.exp(-v / 400));
+  const engine = cfg.color === "white" ? "black" : "white";
+  const bottom = flipped ? engine : cfg.color, top = flipped ? cfg.color : engine;
+  const bottomShare = flipped ? 1 - youShare : youShare;
+  const shade = c => c === "white" ? "#f1f1f1" : "#3a3a3a", ink = c => c === "white" ? "#222" : "#eee";
+  const fill = $("evalfill"), val = $("evalval");
+  fill.style.height = bottomShare * 100 + "%"; fill.style.background = shade(bottom);
+  fill.parentElement.style.background = shade(top);
+  val.textContent = lastEval == null ? "" : (mate ? "M" : (v > 0 ? "+" : "") + (v / 100).toFixed(1));
+  const bottomAhead = bottomShare >= .5;
+  val.style.top = bottomAhead ? "" : "3px"; val.style.bottom = bottomAhead ? "3px" : "";
+  val.style.color = ink(bottomAhead ? bottom : top);
+}
+
+// ---------- input ----------
+function sqAt(x, y) { const el = document.elementFromPoint(x, y); const s = el && el.closest(".sq"); return s ? s.dataset.sq : null; }
+
+$("board").addEventListener("pointerdown", e => {
+  if (busy || game.over || resigned || !game.legal.length) return;
+  const sq = sqAt(e.clientX, e.clientY); if (!sq) return;
+  if (sel && sel !== sq && tryMove(sel, sq)) return;
+  if (game.legal.some(m => m.startsWith(sq))) {
+    sel = sq; render();
+    const pc = document.querySelector(`.sq[data-sq="${sq}"] .pc`);
+    if (pc) {
+      const ghost = pc.cloneNode(true); ghost.classList.add("drag"); ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px";
+      document.body.appendChild(ghost); pc.style.opacity = ".3";
+      drag = {from:sq, ghost, x:e.clientX, y:e.clientY, moved:false};
+    }
+  } else { sel = null; render(); }
+});
+window.addEventListener("pointermove", e => {
+  if (!drag) return;
+  drag.ghost.style.left = e.clientX + "px"; drag.ghost.style.top = e.clientY + "px";
+  if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true;
+  document.querySelectorAll(".sq.hover").forEach(x => x.classList.remove("hover"));
+  const sq = sqAt(e.clientX, e.clientY); if (sq) document.querySelector(`.sq[data-sq="${sq}"]`).classList.add("hover");
+});
+window.addEventListener("pointerup", e => {
+  if (!drag) return;
+  const d = drag; drag = null; d.ghost.remove();
+  const to = sqAt(e.clientX, e.clientY);
+  if (d.moved && to && to !== d.from && tryMove(d.from, to)) return;
+  if (d.moved) sel = null;
+  render();
+});
+
+function tryMove(from, to) {
+  const cands = game.legal.filter(m => m.startsWith(from + to));
+  if (!cands.length) return false;
+  if (cands.length === 1) play(cands[0]); else askPromo(cands);
+  return true;
+}
+
+function askPromo(cands) {
+  const box = $("promobox"); box.innerHTML = "";
+  for (const t of ["q", "r", "b", "n"]) {
+    const m = cands.find(x => x.endsWith(t)); if (!m) continue;
+    const bt = document.createElement("button");
+    bt.innerHTML = `<span class="pc ${game.turn === "white" ? "w" : "b"}" style="font-size:inherit">${GLYPH[t]}</span>`;
+    bt.onclick = () => { $("promo").classList.remove("show"); play(m); };
+    box.appendChild(bt);
+  }
+  $("promo").classList.add("show");
+}
+
+async function play(uci) {
+  sel = null; showError("");
+  try { game = await api([...game.moves, uci], false); render(); await engineTurn(); }
+  catch (e) { showError(e.message); }
+}
+
+async function engineTurn() {
+  if (game.over || resigned || game.legal.length) return;
+  busy = true; render();
+  try {
+    game = await api(game.moves, true);
+    const e = game.engine;
+    if (e.san) { lastEval = e.eval; $("info").textContent = `Engine played ${e.san} · depth ${e.depth} · ${e.secs}s`; }
+  } catch (err) { showError(err.message); }
+  finally { busy = false; render(); }
+}
+
+function showError(msg) { $("error").textContent = msg; $("error").style.display = msg ? "" : "none"; }
+
+async function newGame() {
+  const c = settings(); showError("");
+  try {
+    const g = await api([], false, c);
+    cfg = {...c, game_id:new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19) + "_" + Math.random().toString(36).slice(2, 6)};
+    game = g; sel = null; flipped = false; lastEval = null; resigned = false; overDismissed = false;
+    $("info").textContent = ""; $("promo").classList.remove("show");
+    render(); await engineTurn();
+  } catch (e) { showError(e.message); }
+}
+
+async function undo() {
+  if (busy || !game.moves.length) return;
+  const yourTurn = n => ((n % 2 === 0) ? game.start_turn : (game.start_turn === "white" ? "black" : "white")) === cfg.color;
+  let moves = game.moves.slice();
+  do { moves.pop(); } while (moves.length && !yourTurn(moves.length));
+  sel = null; resigned = false; overDismissed = false; $("info").textContent = ""; showError("");
+  game = await api(moves, false); render();
+  await engineTurn();
+}
+
+$("new").onclick = newGame;
+$("again").onclick = newGame;
+$("review").onclick = () => { overDismissed = true; render(); };
+$("undo").onclick = undo;
+$("flip").onclick = () => { flipped = !flipped; render(); };
+$("resign").onclick = async () => {
+  if (!confirm("Resign this game?")) return;
+  resigned = true; render();
+  try { await api(game.moves, false, {...cfg, resigned:true}); } catch (e) { showError(e.message); }
+};
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, textarea, select")) return;
+  if (e.key === "u") undo(); else if (e.key === "f") $("flip").click(); else if (e.key === "n") newGame();
+  else if (e.key === "Escape") { sel = null; $("promo").classList.remove("show"); render(); }
+});
+
+fetch("/api/config").then(r => r.json()).then(c => {
+  $("rule").innerHTML = c.rules.map(r => `<option${r === "king+pawns" ? " selected" : ""}>${r}</option>`).join("");
+  $("preset").innerHTML = Object.entries(c.presets).map(([k, v]) => `<option value="${v}">${k}</option>`).join("")
+    + `<option value="__custom">Custom FEN…</option>`;
+  newGame();
+});
+</script>
+</body>
+</html>

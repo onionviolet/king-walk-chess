@@ -12,7 +12,7 @@ from kingwalk import RULES, Searcher
 
 def main():
     board = chess.Board()
-    rule = RULES["king"]
+    rule = RULES["king+pawns"]
     searcher = Searcher(rule)
 
     def out(s):
@@ -26,7 +26,7 @@ def main():
         if cmd == "uci":
             out("id name KingWalk 0.2")
             out("id author weibao")
-            out("option name Rule type combo default king " + " ".join("var " + r for r in RULES))
+            out("option name Rule type combo default king+pawns " + " ".join("var " + r for r in RULES))
             out("uciok")
         elif cmd == "isready":
             out("readyok")

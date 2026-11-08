@@ -98,3 +98,32 @@ def test_uci_rule_option_survives_newgame():
                        input="uci\nsetoption name Rule value forward\nucinewgame\nposition startpos\ngo movetime 200\nquit\n",
                        capture_output=True)
     assert "option name Rule" in p.stdout and "bestmove " in p.stdout
+
+
+def test_stuck_king_may_only_play_freeing_moves():
+    b = chess.Board()  # white is the king-walker; its king is boxed in at the start
+    got = {b.san(m) for m in k.side_moves(b, chess.WHITE)}
+    assert got == {"d3", "d4", "e3", "e4", "f3", "f4"}
+    m, _ = k.pick_move(b, 3)
+    assert b.san(m) in got
+
+
+def test_stuck_black_king_same_rule():
+    b = chess.Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
+    assert {b.san(m) for m in k.side_moves(b, chess.BLACK)} == {"d6", "d5", "e6", "e5", "f6", "f5"}
+
+
+def test_no_freeing_move_falls_back_to_any():
+    b = chess.Board("k7/8/1QK5/8/8/8/8/r7 b - - 0 1")  # rook moves cannot free the a8 king
+    assert not k.freeing_moves(b)
+    assert set(k.side_moves(b, chess.BLACK)) == set(b.legal_moves)
+
+
+def test_king_pawns_fast_path_matches_rule():
+    rule = k.RULES["king+pawns"]
+    b = _mid()
+    for _ in range(6):
+        fast = set(k._rule_moves(b, b.turn, rule))
+        slow = {m for m in b.legal_moves if rule(b, m)}
+        assert fast == slow
+        b.push(sorted(b.legal_moves, key=lambda x: x.uci())[0])
